@@ -26,8 +26,6 @@ int main(int argc, char **argv)
 
   while (true) 
   {
-    //int current_optind = optind ? optind : 1; //не используется
-
     //массив структур: название, необходимость значения для данной опций, указатель на флаг, значение во флаг
     //используется для обработки длинных опций
     static struct option options[] = {{"seed", required_argument, 0, 0},
@@ -37,9 +35,11 @@ int main(int argc, char **argv)
                                       {0, 0, 0, 0}};
 
     int option_index = 0; //индекс массива для перебора длинных опций
-    //"f" - есть только одна короткая опция без значения
-    //последовательно возращает код символа опции, если больше не будет найдено опций, которые надо распознать, вернет -1
+
+    //последовательно возращает код символа опции, если больше не будет найдено опций, 
+    //которые надо распознать, вернет -1
     int c = getopt_long(argc, argv, "f", options, &option_index);
+    //"f" - есть только одна короткая опция без значения
 
     if (c == -1) break;
 
@@ -121,6 +121,7 @@ int main(int argc, char **argv)
   PrintArray(array, array_size);
   int active_child_processes = 0;
 
+  // массив из pnum файловых дескрипторов
   int file_desc[pnum][2][2];
   
   if (!with_files)
@@ -202,8 +203,6 @@ int main(int argc, char **argv)
   for (int i = 0; i < pnum; i++) {
     int min = INT_MAX;
     int max = INT_MIN;
-
-    struct MinMax* data = malloc(sizeof(struct MinMax));
 
     if (with_files) {
       char file_name[32];
