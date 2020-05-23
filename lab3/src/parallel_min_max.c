@@ -122,6 +122,7 @@ int main(int argc, char **argv)
   int active_child_processes = 0;
 
   int file_desc[pnum][2][2];
+  
   if (!with_files)
   {
       for (int i = 0; i < pnum; i++)
@@ -155,7 +156,7 @@ int main(int argc, char **argv)
             char file_name[32];
             sprintf(file_name, "buffer%d", i);
             FILE *f;
-            f = fopen("buffer", "w");
+            f = fopen(file_name, "w");
             if (f != NULL)
             {
                 fprintf(f, "%d\t%d", mM.min, mM.max); 
@@ -168,7 +169,7 @@ int main(int argc, char **argv)
             close(file_desc[i][1][0]);
 
             write(file_desc[i][0][1], &mM.min, sizeof(int));
-            write(file_desc[i][0][1], &mM.max, sizeof(int));
+            write(file_desc[i][1][1], &mM.max, sizeof(int));
         }
         return 0;
       }
@@ -208,12 +209,12 @@ int main(int argc, char **argv)
       char file_name[32];
       sprintf(file_name, "buffer%d", i);
       FILE *f;
-      f = fopen("buffer", "r");
+      f = fopen(file_name, "r");
       if (f != NULL)
       {
           fscanf(f, "%d\t%d", &min, &max);
           fclose(f);
-          remove(file_name);
+          //remove(file_name);
       }
     } 
     else 
