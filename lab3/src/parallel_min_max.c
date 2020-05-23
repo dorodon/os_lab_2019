@@ -140,7 +140,6 @@ int main(int argc, char **argv)
     pid_t child_pid = fork();
     if (child_pid >= 0) 
     {
-      printf("fork() succeeded");
       active_child_processes += 1;
 
       if (child_pid == 0) 
@@ -153,6 +152,8 @@ int main(int argc, char **argv)
 
         if (with_files) 
         {
+            char file_name[32];
+            sprintf(file_name, "buffer%d", i);
             FILE *f;
             f = fopen("buffer", "w");
             if (f != NULL)
@@ -204,12 +205,15 @@ int main(int argc, char **argv)
     struct MinMax* data = malloc(sizeof(struct MinMax));
 
     if (with_files) {
+      char file_name[32];
+      sprintf(file_name, "buffer%d", i);
       FILE *f;
       f = fopen("buffer", "r");
       if (f != NULL)
       {
           fscanf(f, "%d\t%d", &min, &max);
           fclose(f);
+          remove(file_name);
       }
     } 
     else 
@@ -218,7 +222,7 @@ int main(int argc, char **argv)
         close(file_desc[i][1][1]);
 
         read(file_desc[i][0][0], &min, sizeof(int));
-        read(file_desc[i][0][0], &max, sizeof(int));
+        read(file_desc[i][1][0], &max, sizeof(int));
     }
 
     if (min < min_max.min) min_max.min = min;
