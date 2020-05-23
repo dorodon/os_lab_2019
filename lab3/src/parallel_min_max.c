@@ -17,14 +17,16 @@
 
 #include <assert.h>
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
   int seed = -1;
   int array_size = -1;
   int pnum = -1;
   bool with_files = false;
 
-  while (true) {
-    int current_optind = optind ? optind : 1; //не используется
+  while (true) 
+  {
+    //int current_optind = optind ? optind : 1; //не используется
 
     //массив структур: название, необходимость значения для данной опций, указатель на флаг, значение во флаг
     //используется для обработки длинных опций
@@ -41,9 +43,11 @@ int main(int argc, char **argv) {
 
     if (c == -1) break;
 
-    switch (c) {
+    switch (c) 
+    {
       case 0:
-        switch (option_index) {
+        switch (option_index) 
+        {
           case 0:
             //дробная часть числа отбросится
             //если будет введено не число, вернет 0
@@ -54,7 +58,8 @@ int main(int argc, char **argv) {
             array_size = atoi(optarg);
             if (array_size < 1)
             {
-                fprintf(stderr, "array_size = %d\n", array_size);
+                fprintf(stderr, "array_size < 1");
+                return 1;
             }
             else 
             {
@@ -65,11 +70,17 @@ int main(int argc, char **argv) {
             pnum = atoi(optarg);
             if (pnum < 1)
             {
-                fprintf(stderr, "pnum = %d\n", pnum);
+                fprintf(stderr, "pnum < 1\n");
+                return 1;
+            }
+            if (pnum > array_size)
+            {
+                fprintf(stderr, "pnum > array_size\n");
+                return 1;
             }
             else 
             {
-                printf("pnum = %d\n", pnum);
+                printf("used pnum = %d\n", pnum);
             }
             break;
           case 3:
@@ -92,12 +103,14 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (optind < argc) {
+  if (optind < argc) 
+  {
     printf("Has at least one no option argument\n");
     return 1;
   }
   //какая-либо из длинных опций не была введена
-  if (seed == -1 || array_size == -1 || pnum == -1) {
+  if (seed == -1 || array_size == -1 || pnum == -1) 
+  {
     printf("Usage: %s --seed \"num\" --array_size \"num\" --pnum \"num\" \n",
            argv[0]);
     return 1;
@@ -108,49 +121,75 @@ int main(int argc, char **argv) {
   PrintArray(array, array_size);
   int active_child_processes = 0;
 
+  int file_desc[pnum][2][2];
+  if (!with_files)
+  {
+      for (int i = 0; i < pnum; i++)
+      {
+          pipe(file_desc[i][0]);
+          pipe(file_desc[i][1]);
+      }
+  }
+
   struct timeval start_time;
   gettimeofday(&start_time, NULL);
 
-  for (int i = 0; i < pnum; i++) {
+  int delta = array_size / pnum;
+  for (int i = 0; i < pnum; i++) 
+  {
     pid_t child_pid = fork();
-    if (child_pid >= 0) {
+    if (child_pid >= 0) 
+    {
       printf("fork() succeeded");
       active_child_processes += 1;
-      if (child_pid == 0) {
-        // parallel somehow      
-        struct MinMax mM = GetMinMax(
-          array,
-          array_size * (active_child_processes - 1) / pnum,
-          pnum == active_child_processes? array_size: array_size * active_child_processes / pnum
-          );
 
-        if (with_files) {
-            // use files here
+      if (child_pid == 0) 
+      {
+        // parallel somehow   
+        int begin = i * delta;
+        int end = begin + delta;
+        
+        struct MinMax mM = GetMinMax(array, begin, end);
+
+        if (with_files) 
+        {
             FILE *f;
-            f = fopen("buffer", "wb");
-            fwrite_unlocked(&mM, sizeof(struct MinMax), 1, f);   
-            fclose(f);       
-        } else {
-            // use pipe here
-            int fd[1];
-            pipe(fd);
-            write(fd[0], &mM, sizeof(struct MinMax));    
+            f = fopen("buffer", "w");
+            if (f != NULL)
+            {
+                fprintf(f, "%d\t%d", mM.min, mM.max); 
+                fclose(f); 
+            }         
+        } 
+        else 
+        {
+            close(file_desc[i][0][0]);
+            close(file_desc[i][1][0]);
+
+            write(file_desc[i][0][1], &mM.min, sizeof(int));
+            write(file_desc[i][0][1], &mM.max, sizeof(int));
         }
         return 0;
       }
 
-    } else {
+    } 
+    else 
+    {
       printf("Fork failed\n");
       return 1;
     }
   }
 
+  int status;
   while (active_child_processes > 0) {
     // your code here
-    int rt;
-    wait(&rt);
-    printf("status: %d\n", rt);
-
+    wait(&status);
+    //WIFEXITED != 0 if child process has finished
+    if (!WIFEXITED(status))
+    {
+        fprintf(stderr, "ERROR in child process");
+        return 1;
+    }
     active_child_processes -= 1;
   }
 
@@ -165,15 +204,21 @@ int main(int argc, char **argv) {
     struct MinMax* data = malloc(sizeof(struct MinMax));
 
     if (with_files) {
-      // read from files
       FILE *f;
-      f = fopen("buffer", "rb");
-      fread(data, sizeof(struct MinMax), 1, f);
-    } else {
-      // read from pipes
-      int fd[1];
-      pipe(fd);
-      read(fd[0], data, sizeof(struct MinMax));
+      f = fopen("buffer", "r");
+      if (f != NULL)
+      {
+          fscanf(f, "%d\t%d", &min, &max);
+          fclose(f);
+      }
+    } 
+    else 
+    {
+        close(file_desc[i][0][1]);
+        close(file_desc[i][1][1]);
+
+        read(file_desc[i][0][0], &min, sizeof(int));
+        read(file_desc[i][0][0], &max, sizeof(int));
     }
 
     if (min < min_max.min) min_max.min = min;
