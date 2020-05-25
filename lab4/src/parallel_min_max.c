@@ -15,7 +15,7 @@
 #include "find_min_max.h"
 #include "utils.h"
 
-#include <assert.h>
+#include <signal.h>
 
 int main(int argc, char **argv) 
 {
@@ -23,6 +23,7 @@ int main(int argc, char **argv)
   int array_size = -1;
   int pnum = -1;
   bool with_files = false;
+  int timeout = -1;
 
   while (true) 
   {
@@ -32,6 +33,7 @@ int main(int argc, char **argv)
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
                                       {"by_files", no_argument, 0, 'f'},
+                                      {"timeout", optional_argument, 0, 't'},
                                       {0, 0, 0, 0}};
 
     int option_index = 0; //индекс массива для перебора длинных опций
@@ -86,7 +88,18 @@ int main(int argc, char **argv)
           case 3:
             with_files = true;
             break;
-
+          case 4:
+            timeout = atoi(optarg);
+            if (timeout < 0)
+            {
+                fprintf(stderr, "timeout < 0\n");
+                return 1;
+            }
+            else
+            {
+                printf("used timeout = %ds\n", timeout);
+            }
+            break;
           default:
             printf("Index %d is out of options\n", option_index);
         }
@@ -132,6 +145,14 @@ int main(int argc, char **argv)
           pipe(file_desc[i][1]);
       }
   }
+  // fun myFun exec with SIGALRM
+  if (signal(SIGALRM, myFun))
+  {
+      printf("Cannot catch SIGALRM\n");
+  }
+  alarm(timeout);
+  pid_t *child_pid_array;
+  child_pid_array = malloc(sizeof(pid_t)*pnum);
 
   struct timeval start_time;
   gettimeofday(&start_time, NULL);
