@@ -22,7 +22,7 @@ int pnum = -1;
 pid_t *child_pid_array;
 int active_child_processes = 0;
 
-static void myFun()
+static void myFun(int sigg)
 {
     printf("Timeout exceeded. . .");
     for (int i = 0; i < pnum; i++)
@@ -63,8 +63,8 @@ int main(int argc, char **argv)
     static struct option options[] = {{"seed", required_argument, 0, 0},
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
+                                      {"timeout", required_argument, 0, 0},
                                       {"by_files", no_argument, 0, 'f'},
-                                      {"timeout", optional_argument, 0, 't'},
                                       {0, 0, 0, 0}};
 
     int option_index = 0; //индекс массива для перебора длинных опций
@@ -116,10 +116,10 @@ int main(int argc, char **argv)
                 printf("used pnum = %d\n", pnum);
             }
             break;
-          case 3:
+          case 4:
             with_files = true;
             break;
-          case 4:
+          case 3:
             timeout = atoi(optarg);
             if (timeout < 0)
             {
