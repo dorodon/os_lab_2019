@@ -16,12 +16,43 @@
 #include "utils.h"
 
 #include <signal.h>
+#include <errno.h>
+
+int pnum = -1;
+pid_t *child_pid_array;
+int active_child_processes = 0;
+
+static void myFun()
+{
+    printf("Timeout exceeded. . .");
+    for (int i = 0; i < pnum; i++)
+    {
+        kill(child_pid_array[i], SIGKILL);
+    }
+    while (active_child_processes >= 0)
+    {
+        //WNOHANG - any child process hasn't finished -> return 0
+        int wpid = waitpid(-1, NULL, WNOHANG);
+        printf("%d\n", active_child_processes);
+        //Error
+        if (wpid == -1)
+        {
+            //ECHILD - no child processes
+            if (errno == ECHILD) break;     
+        }
+        else
+        {
+            active_child_processes = -1;
+        }
+        printf("\nExit program\n");
+        exit(0);
+    }
+}
 
 int main(int argc, char **argv) 
 {
   int seed = -1;
   int array_size = -1;
-  int pnum = -1;
   bool with_files = false;
   int timeout = -1;
 
@@ -132,7 +163,6 @@ int main(int argc, char **argv)
   int *array = malloc(sizeof(int) * array_size);
   GenerateArray(array, array_size, seed);
   PrintArray(array, array_size);
-  int active_child_processes = 0;
 
   // массив из pnum файловых дескрипторов
   int file_desc[pnum][2][2];
@@ -151,8 +181,6 @@ int main(int argc, char **argv)
       printf("Cannot catch SIGALRM\n");
   }
   alarm(timeout);
-  pid_t *child_pid_array;
-  child_pid_array = malloc(sizeof(pid_t)*pnum);
 
   struct timeval start_time;
   gettimeofday(&start_time, NULL);
@@ -160,12 +188,12 @@ int main(int argc, char **argv)
   int delta = array_size / pnum;
   for (int i = 0; i < pnum; i++) 
   {
-    pid_t child_pid = fork();
-    if (child_pid >= 0) 
+    child_pid_array[i] = fork();
+    if (child_pid_array[i] >= 0) 
     {
       active_child_processes += 1;
 
-      if (child_pid == 0) 
+      if (child_pid_array == 0) 
       {
         // parallel somehow   
         int begin = i * delta;
@@ -234,7 +262,7 @@ int main(int argc, char **argv)
       {
           fscanf(f, "%d\t%d", &min, &max);
           fclose(f);
-          //remove(file_name);
+          remove(file_name);
       }
     } 
     else 
@@ -257,6 +285,7 @@ int main(int argc, char **argv)
   elapsed_time += (finish_time.tv_usec - start_time.tv_usec) / 1000.0;
 
   free(array);
+  free(child_pid_array);
 
   printf("Min: %d\n", min_max.min);
   printf("Max: %d\n", min_max.max);
