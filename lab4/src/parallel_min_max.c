@@ -22,19 +22,18 @@ int pnum = -1;
 pid_t *child_pid_array;
 int active_child_processes = 0;
 
-static void myFun(int sigg)
+void myFun()
 {
-    printf("Timeout exceeded. . .");
     for (int i = 0; i < pnum; i++)
     {
         kill(child_pid_array[i], SIGKILL);
+        printf("\nchild process[%d] killed", i);
     }
-    while (active_child_processes >= 0)
+    while (active_child_processes > 0)
     {
         //WNOHANG - any child process hasn't finished -> return 0
         int wpid = waitpid(-1, NULL, WNOHANG);
-        printf("%d\n", active_child_processes);
-        //Error
+        //waiting any child
         if (wpid == -1)
         {
             //ECHILD - no child processes
@@ -44,8 +43,7 @@ static void myFun(int sigg)
         {
             active_child_processes = -1;
         }
-        printf("\nExit program\n");
-        exit(0);
+        printf("\nFun done\n");
     }
 }
 
@@ -186,6 +184,8 @@ int main(int argc, char **argv)
   gettimeofday(&start_time, NULL);
 
   int delta = array_size / pnum;
+
+  int *child_pid_array = malloc(sizeof(pid_t)*pnum);
   for (int i = 0; i < pnum; i++) 
   {
     child_pid_array[i] = fork();

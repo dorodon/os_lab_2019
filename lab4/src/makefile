@@ -6,7 +6,8 @@ CFLAGS=-I. -std=c99
 #target file: dependencies
 #[tab] command
 all: parallel_min_max
-
+	 clear
+	 
 parallel_min_max : utils.o find_min_max.o utils.h find_min_max.h
 	$(CC) -o parallel_min_max utils.o find_min_max.o parallel_min_max.c $(CFLAGS)
 	
@@ -18,3 +19,4 @@ find_min_max.o : utils.h find_min_max.h
 
 clean :
 	rm -f utils.o find_min_max.o parallel_min_max
+	clear
