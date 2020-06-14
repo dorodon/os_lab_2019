@@ -18,125 +18,91 @@
 #include <signal.h>
 #include <errno.h>
 
+pid_t* child_pids;
 int pnum = -1;
-pid_t *child_pid_array;
-int active_child_processes = 0;
-
-void myFun()
+void kill_childs(int sign)
 {
-    for (int i = 0; i < pnum; i++)
+    printf("kill\n");
+    fflush(stdout); 
+    if(sign == SIGALRM)
     {
-        kill(child_pid_array[i], SIGKILL);
-        printf("\nchild process[%d] killed", i);
-    }
-    while (active_child_processes > 0)
-    {
-        //WNOHANG - any child process hasn't finished -> return 0
-        int wpid = waitpid(-1, NULL, WNOHANG);
-        //waiting any child
-        if (wpid == -1)
+        int i;
+        for(i = 0; i < pnum; i++)
         {
-            //ECHILD - no child processes
-            if (errno == ECHILD) break;     
+            kill(child_pids[i], SIGKILL);
         }
-        else
-        {
-            active_child_processes = -1;
-        }
-        printf("\nFun done\n");
+        //printf("kill\n");
+        //fflush(stdout); 
+        //sleep(2);
     }
 }
 
-int main(int argc, char **argv) 
-{
+int main(int argc, char **argv) {
   int seed = -1;
   int array_size = -1;
+  pnum = -1;
   bool with_files = false;
   int timeout = -1;
+  signal(SIGALRM, kill_childs);
 
-  while (true) 
-  {
-    //массив структур: название, необходимость значения для данной опций, указатель на флаг, значение во флаг
-    //используется для обработки длинных опций
+  while (true) {
+    int current_optind = optind ? optind : 1;
+
     static struct option options[] = {{"seed", required_argument, 0, 0},
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
-                                      {"timeout", required_argument, 0, 0},
                                       {"by_files", no_argument, 0, 'f'},
+                                      {"timeout", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
-    int option_index = 0; //индекс массива для перебора длинных опций
-
-    //последовательно возращает код символа опции, если больше не будет найдено опций, 
-    //которые надо распознать, вернет -1
+    int option_index = 0;
     int c = getopt_long(argc, argv, "f", options, &option_index);
-    //"f" - есть только одна короткая опция без значения
 
     if (c == -1) break;
 
-    switch (c) 
-    {
+    switch (c) {
       case 0:
-        switch (option_index) 
-        {
+        switch (option_index) {
           case 0:
-            //дробная часть числа отбросится
-            //если будет введено не число, вернет 0
             seed = atoi(optarg);
-            printf("used seed = %d\n", seed);
+            if (seed <= 0) {
+                printf("seed is a positive number\n");
+                return 1;
+            }
             break;
           case 1:
             array_size = atoi(optarg);
-            if (array_size < 1)
-            {
-                fprintf(stderr, "array_size < 1");
+            if (array_size <= 0) {
+                printf("array_size is a positive number\n");
                 return 1;
-            }
-            else 
-            {
-                printf("used array_size = %d\n", array_size);
             }
             break;
           case 2:
             pnum = atoi(optarg);
-            if (pnum < 1)
-            {
-                fprintf(stderr, "pnum < 1\n");
+            if (pnum <= 0) {
+                printf("pnum is a positive number\n");
                 return 1;
             }
-            if (pnum > array_size)
-            {
-                fprintf(stderr, "pnum > array_size\n");
-                return 1;
-            }
-            else 
-            {
-                printf("used pnum = %d\n", pnum);
-            }
-            break;
-          case 4:
-            with_files = true;
             break;
           case 3:
+            with_files = true;
+            break;
+          case 4:
             timeout = atoi(optarg);
-            if (timeout < 0)
-            {
-                fprintf(stderr, "timeout < 0\n");
+            if (timeout <= 0) {
+                printf("timeout is a positive number\n");
                 return 1;
             }
-            else
-            {
-                printf("used timeout = %ds\n", timeout);
-            }
             break;
-          default:
+
+          defalut:
             printf("Index %d is out of options\n", option_index);
         }
         break;
       case 'f':
         with_files = true;
         break;
-      //символ не из строки с короткими опциями
+
       case '?':
         break;
 
@@ -145,14 +111,12 @@ int main(int argc, char **argv)
     }
   }
 
-  if (optind < argc) 
-  {
+  if (optind < argc) {
     printf("Has at least one no option argument\n");
     return 1;
   }
-  //какая-либо из длинных опций не была введена
-  if (seed == -1 || array_size == -1 || pnum == -1) 
-  {
+
+  if (seed == -1 || array_size == -1 || pnum == -1) {
     printf("Usage: %s --seed \"num\" --array_size \"num\" --pnum \"num\" \n",
            argv[0]);
     return 1;
@@ -160,123 +124,85 @@ int main(int argc, char **argv)
 
   int *array = malloc(sizeof(int) * array_size);
   GenerateArray(array, array_size, seed);
-  PrintArray(array, array_size);
-
-  // массив из pnum файловых дескрипторов
-  int file_desc[pnum][2][2];
-  
-  if (!with_files)
-  {
-      for (int i = 0; i < pnum; i++)
-      {
-          pipe(file_desc[i][0]);
-          pipe(file_desc[i][1]);
-      }
-  }
-  // fun myFun exec with SIGALRM
-  if (signal(SIGALRM, myFun))
-  {
-      printf("Cannot catch SIGALRM\n");
-  }
-  alarm(timeout);
+  int active_child_processes = 0;
 
   struct timeval start_time;
   gettimeofday(&start_time, NULL);
 
-  int delta = array_size / pnum;
+  FILE* file;
+  int pipefd[2];
+  file = fopen("file.txt", "w");
+  pipe(pipefd);
+  int block = array_size / pnum;
 
-  int *child_pid_array = malloc(sizeof(pid_t)*pnum);
-  for (int i = 0; i < pnum; i++) 
-  {
-    child_pid_array[i] = fork();
-    if (child_pid_array[i] >= 0) 
-    {
+  int i;
+  child_pids = calloc(pnum, sizeof(pid_t));
+  for (i = 0; i < pnum; i++) {
+    child_pids[i] = fork();
+    if (child_pids[i] >= 0) {
+      // successful fork
       active_child_processes += 1;
+      if (child_pids[i] == 0) {
+        // child process
 
-      if (child_pid_array == 0) 
-      {
-        // parallel somehow   
-        int begin = i * delta;
-        int end = begin + delta;
-        
-        struct MinMax mM = GetMinMax(array, begin, end);
+        int start = block*i + (i>array_size%pnum?array_size%pnum : i);
+        int end = start + block + (i>=array_size%pnum? 0: 1);
+        struct MinMax min_max = GetMinMax(array, start, end);
 
-        if (with_files) 
-        {
-            char file_name[32];
-            sprintf(file_name, "buffer%d", i);
-            FILE *f;
-            f = fopen(file_name, "w");
-            if (f != NULL)
-            {
-                fprintf(f, "%d\t%d", mM.min, mM.max); 
-                fclose(f); 
-            }         
-        } 
-        else 
-        {
-            close(file_desc[i][0][0]);
-            close(file_desc[i][1][0]);
-
-            write(file_desc[i][0][1], &mM.min, sizeof(int));
-            write(file_desc[i][1][1], &mM.max, sizeof(int));
+        if (with_files) {
+            fprintf(file, "%d\t%d\n", min_max.min, min_max.max);
+        } else {
+            write(pipefd[1], &min_max.min, 4);
+            write(pipefd[1], &min_max.max, 4);
         }
+        printf("ready to exit child process\n");
+        //sleep(2);
         return 0;
+      }else{
+          printf("%d\n", child_pids[i]);
+          fflush(stdout); 
       }
 
-    } 
-    else 
-    {
-      printf("Fork failed\n");
+    } else {
+      printf("Fork failed!\n");
       return 1;
     }
   }
 
-  int status;
+  if(timeout != -1)
+    alarm(timeout);
+
   while (active_child_processes > 0) {
+    wait(NULL);
+    //waitpid(-1, NULL, WNOHANG);
+    //sleep(2);
     // your code here
-    wait(&status);
-    //WIFEXITED != 0 if child process has finished
-    if (!WIFEXITED(status))
-    {
-        fprintf(stderr, "ERROR in child process");
-        return 1;
-    }
+
     active_child_processes -= 1;
   }
+  fclose(file);
+  file = fopen("file.txt", "r");
 
   struct MinMax min_max;
   min_max.min = INT_MAX;
   min_max.max = INT_MIN;
 
-  for (int i = 0; i < pnum; i++) {
+  for (i = 0; i < pnum; i++) {
     int min = INT_MAX;
     int max = INT_MIN;
 
     if (with_files) {
-      char file_name[32];
-      sprintf(file_name, "buffer%d", i);
-      FILE *f;
-      f = fopen(file_name, "r");
-      if (f != NULL)
-      {
-          fscanf(f, "%d\t%d", &min, &max);
-          fclose(f);
-          remove(file_name);
-      }
-    } 
-    else 
-    {
-        close(file_desc[i][0][1]);
-        close(file_desc[i][1][1]);
-
-        read(file_desc[i][0][0], &min, sizeof(int));
-        read(file_desc[i][1][0], &max, sizeof(int));
+      fscanf(file, "%d%d", &min, &max);
+    } else {
+      read(pipefd[0], &min, 4);
+      read(pipefd[0], &max, 4);
     }
 
     if (min < min_max.min) min_max.min = min;
     if (max > min_max.max) min_max.max = max;
   }
+
+  fclose(file);
 
   struct timeval finish_time;
   gettimeofday(&finish_time, NULL);
@@ -285,11 +211,11 @@ int main(int argc, char **argv)
   elapsed_time += (finish_time.tv_usec - start_time.tv_usec) / 1000.0;
 
   free(array);
-  free(child_pid_array);
 
   printf("Min: %d\n", min_max.min);
   printf("Max: %d\n", min_max.max);
   printf("Elapsed time: %fms\n", elapsed_time);
   fflush(NULL);
+  free(child_pids);
   return 0;
 }
