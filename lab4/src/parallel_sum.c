@@ -10,7 +10,7 @@
 #include "utils.h"
 #include "Sum.h"
 
-//./statically_linked --seed 3 --array_size 5 --threads_num 2
+//./statically_linked --seed 3 --array_size 2 --threads_num 2
 
 void *ThreadSum(void *args) {
   struct SumArgs *sum_args = (struct SumArgs *)args;
@@ -112,8 +112,11 @@ int main(int argc, char **argv) {
     args[i].array = array;
     args[i].begin = block*i + (i > mod ? mod : i);
     args[i].end = args[i].begin + block + (i >= mod ? 0: 1);
+    printf("array[i]:\t%d\n", array[i]);
+    printf("begin:\t%d\n", args[i].begin);
+    printf("end:\t%d\n\n", args[i].end);
 
-    if (pthread_create(&threads[i], NULL, ThreadSum, (void *)&args)) {
+    if (pthread_create(&threads[i], NULL, ThreadSum, (void *)&args[i])) {
       printf("Error: pthread_create failed!\n");
       return 1;
     }

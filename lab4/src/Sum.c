@@ -6,6 +6,6 @@ int Sum(const struct SumArgs *args) {
   for (i = args->array + args->begin; i < args->array + args->end; i++)
   {
       sum += *i;
-  }   
+  }
   return sum;
 }
