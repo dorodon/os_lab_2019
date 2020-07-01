@@ -29,7 +29,7 @@ void Factorial(struct FactorialArgs* num)
 int main(int argc, char **argv) 
 {
     uint64_t k = -1;
-    int p_num = -1;
+    int pnum = -1;
 
     while (1) 
     {
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
         {
             {"k", required_argument, 0, 0},
             {"mod", required_argument, 0, 0},
-            {"p_num", required_argument, 0, 0},
+            {"pnum", required_argument, 0, 0},
             {0, 0, 0, 0}
         };
 
@@ -70,8 +70,8 @@ int main(int argc, char **argv)
                         }
                         break;
                     case 2:
-                        p_num = atoi(optarg);
-                        if(p_num <= 0)
+                        pnum = atoi(optarg);
+                        if(pnum <= 0)
                         {
                             printf("Number of threads must be a positive");
                             return 1;
@@ -94,31 +94,31 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (mod == -1 || k == -1 || p_num == -1) 
+    if (mod == -1 || k == -1 || pnum == -1) 
     {
-        printf("Usage: %s —k \"num\" —p_num \"num\" —mod \"num\" \n", argv[0]);
+        printf("Usage: %s —k \"num\" —pnum \"num\" —mod \"num\" \n", argv[0]);
         return 1;
     }
 
-    pthread_t threads[p_num];
-    struct FactorialArgs args[p_num];
+    pthread_t threads[pnum];
+    struct FactorialArgs args[pnum];
     int j = 1;
-    for (int i = 0; i < p_num; i++)
+    for (int i = 0; i < pnum; i++)
     {
-        if(i != p_num - 1)
+        if(i != pnum - 1)
         {
             args[i].begin = j;
-            args[i].end = j + k/p_num;
+            args[i].end = j + k/pnum;
         }
         else
         {
             args[i].begin = j;
             args[i].end = k + 1;
         }
-        j += k/p_num;
+        j += k/pnum;
     }
 
-    for (uint32_t i = 0; i < p_num; i++) 
+    for (uint32_t i = 0; i < pnum; i++) 
     {
         if (pthread_create(&threads[i], NULL, (void*)Factorial, (void *)&args[i])) 
         {
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
         }
     }
 
-    for (uint32_t i = 0; i < p_num; i++) 
+    for (uint32_t i = 0; i < pnum; i++) 
     {
         pthread_join(threads[i], NULL);
     }
